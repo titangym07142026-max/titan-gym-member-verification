@@ -28,7 +28,7 @@
     .card {
       width: 100%;
       max-width: 430px;
-      background: #ffffff;
+      background: #fff;
       border-radius: 20px;
       padding: 30px 25px;
       box-shadow: 0 15px 45px rgba(0,0,0,.3);
@@ -36,8 +36,8 @@
     }
 
     .logo {
-      color: #d71920;
-      font-size: 30px;
+      color: #c71920;
+      font-size: 29px;
       font-weight: 900;
       letter-spacing: 2px;
     }
@@ -45,7 +45,7 @@
     .subtitle {
       margin-top: 5px;
       color: #777;
-      font-size: 12px;
+      font-size: 11px;
       letter-spacing: 2px;
       text-transform: uppercase;
     }
@@ -53,7 +53,6 @@
     h2 {
       margin-top: 25px;
       font-size: 21px;
-      color: #172033;
     }
 
     .badge {
@@ -85,22 +84,48 @@
       line-height: 1.6;
     }
 
-    .qr-container {
-      margin: 20px auto;
-      padding: 12px;
-      width: 160px;
-      height: 160px;
-      border: 1px solid #eee;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .error {
+      color: #dc2626;
     }
 
-    .qr-container img {
+    /* BRANDED QR CODE */
+    .qr-container {
+      position: relative;
+      width: 170px;
+      height: 170px;
+      margin: 20px auto;
+      padding: 5px;
+      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 12px;
+    }
+
+    .qr-image {
+      display: block;
       width: 100%;
       height: 100%;
       object-fit: contain;
+    }
+
+    .qr-logo {
+      position: absolute;
+      width: 38px;
+      height: 38px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      object-fit: contain;
+      background: #fff;
+      padding: 3px;
+      border: 2px solid #fff;
+      border-radius: 7px;
+    }
+
+    .qr-label {
+      color: #555;
+      font-size: 12px;
+      margin-top: -10px;
+      margin-bottom: 18px;
     }
 
     .details {
@@ -128,17 +153,6 @@
       overflow-wrap: anywhere;
     }
 
-    .loading {
-      margin: 25px 0;
-      color: #666;
-      font-size: 14px;
-    }
-
-    .error {
-      color: #dc2626;
-      font-weight: bold;
-    }
-
     .footer {
       margin-top: 25px;
       color: #999;
@@ -147,7 +161,7 @@
     }
 
     .hidden {
-      display: none;
+      display: none !important;
     }
   </style>
 </head>
@@ -170,8 +184,22 @@
     </p>
 
     <div id="qrContainer" class="qr-container hidden">
-      <img id="qrImage" alt="Member verification QR code">
+      <img
+        id="qrImage"
+        class="qr-image"
+        alt="Member verification QR code"
+      >
+
+      <img
+        src="titan-gym-logo.png"
+        class="qr-logo"
+        alt="Titan Gym Logo"
+      >
     </div>
+
+    <p id="qrLabel" class="qr-label hidden">
+      Member Verification QR Code
+    </p>
 
     <section id="details" class="details hidden">
 
@@ -216,8 +244,9 @@
   </main>
 
   <script>
-    // NEW GOOGLE APPS SCRIPT WEB APP URL
-    const API_URL = "https://script.google.com/macros/s/AKfycbw75k3S73oRCwUS7_v3LhdK5WU4Q9Pya969leROgOkfAMTiRwRQoyjGUoshgMasGqNiUQ/exec";
+    // GOOGLE APPS SCRIPT WEB APP
+    const API_URL =
+      "https://script.google.com/macros/s/AKfycbw75k3S73oRCwUS7_v3LhdK5WU4Q9Pya969leROgOkfAMTiRwRQoyjGUoshgMasGqNiUQ/exec";
 
     const params = new URLSearchParams(window.location.search);
     const memberId = params.get("id");
@@ -226,99 +255,75 @@
     const message = document.getElementById("message");
     const details = document.getElementById("details");
     const qrContainer = document.getElementById("qrContainer");
+    const qrLabel = document.getElementById("qrLabel");
 
     function showError(text) {
       badge.textContent = "VERIFICATION FAILED";
       badge.className = "badge inactive";
+
       message.textContent = text;
       message.className = "message error";
+
       details.classList.add("hidden");
       qrContainer.classList.add("hidden");
+      qrLabel.classList.add("hidden");
     }
 
+    // FORMAT DATE USING PHILIPPINE TIME
     function formatDate(value) {
       if (!value) return "-";
 
-      const date = new Date(value + "T00:00:00");
+      const date = new Date(value);
 
       if (isNaN(date.getTime())) return value;
 
       return date.toLocaleDateString("en-PH", {
+        timeZone: "Asia/Manila",
         year: "numeric",
         month: "long",
         day: "numeric"
       });
     }
 
-    function verifyMember() {
-      if (!memberId) {
-        showError("No Member ID was provided. Please scan a valid Titan Gym member QR code.");
+    // GENERATE BRANDED QR CODE
+    function generateQRCode() {
+      const qrImage = document.getElementById("qrImage");
+
+      const verificationURL =
+        window.location.origin +
+        window.location.pathname +
+        "?id=" + encodeURIComponent(memberId);
+
+      const qrURL =
+        "https://api.qrserver.com/v1/create-qr-code/" +
+        "?size=500x500" +
+        "&ecc=H" +
+        "&margin=10" +
+        "&data=" + encodeURIComponent(verificationURL);
+
+      qrImage.src = qrURL;
+
+      qrContainer.classList.remove("hidden");
+      qrLabel.classList.remove("hidden");
+    }
+
+    // DISPLAY MEMBER INFORMATION
+    function displayMember(data) {
+
+      if (!data || !data.ok) {
+        showError(data?.error || "Member not found.");
         return;
       }
 
-      const callbackName =
-        "titanVerify_" + Date.now() + "_" +
-        Math.floor(Math.random() * 100000);
+      const memberStatus =
+        String(data.status || "UNKNOWN").toUpperCase();
 
-      let script = document.createElement("script");
-      let completed = false;
-
-      const cleanup = () => {
-        if (script.parentNode) {
-          script.parentNode.removeChild(script);
-        }
-
-        delete window[callbackName];
-      };
-
-      const timeout = setTimeout(() => {
-        if (completed) return;
-
-        completed = true;
-        cleanup();
-        showError("Connection timed out. Please try again later.");
-      }, 15000);
-
-      window[callbackName] = function(data) {
-        if (completed) return;
-
-        completed = true;
-        clearTimeout(timeout);
-        cleanup();
-
-        if (!data || !data.ok) {
-          showError(data?.error || "Member not found.");
-          return;
-        }
-
-        displayMember(data);
-      };
-
-      script.onerror = function() {
-        if (completed) return;
-
-        completed = true;
-        clearTimeout(timeout);
-        cleanup();
-
-        showError("Unable to connect to the verification server.");
-      };
-
-      const requestUrl =
-        API_URL +
-        "?action=verify" +
-        "&id=" + encodeURIComponent(memberId) +
-        "&callback=" + encodeURIComponent(callbackName);
-
-      script.src = requestUrl;
-      document.body.appendChild(script);
-    }
-
-    function displayMember(data) {
-      const memberStatus = String(data.status || "UNKNOWN").toUpperCase();
       const isActive = memberStatus === "ACTIVE";
 
-      badge.textContent = isActive ? "ACTIVE MEMBER" : memberStatus;
+      badge.textContent = isActive
+        ? "ACTIVE MEMBER"
+        : memberStatus;
+
       badge.className = isActive
         ? "badge"
         : "badge inactive";
@@ -349,16 +354,87 @@
 
       details.classList.remove("hidden");
 
-      // Display QR code for this verification page.
-      const qrImage = document.getElementById("qrImage");
-      qrImage.src =
-        "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
-        encodeURIComponent(window.location.href);
-
-      qrContainer.classList.remove("hidden");
+      generateQRCode();
     }
 
+    // CONNECT TO GOOGLE APPS SCRIPT USING JSONP
+    function verifyMember() {
+
+      if (!memberId) {
+        showError(
+          "No Member ID was provided. Please scan a valid Titan Gym member QR code."
+        );
+        return;
+      }
+
+      const callbackName =
+        "titanVerify_" +
+        Date.now() +
+        "_" +
+        Math.floor(Math.random() * 100000);
+
+      const script = document.createElement("script");
+
+      let completed = false;
+
+      function cleanup() {
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+
+        delete window[callbackName];
+      }
+
+      const timeout = setTimeout(() => {
+        if (completed) return;
+
+        completed = true;
+        cleanup();
+
+        showError(
+          "Connection timed out. Please try again later."
+        );
+
+      }, 20000);
+
+      window[callbackName] = function(data) {
+
+        if (completed) return;
+
+        completed = true;
+        clearTimeout(timeout);
+        cleanup();
+
+        displayMember(data);
+      };
+
+      script.onerror = function() {
+
+        if (completed) return;
+
+        completed = true;
+        clearTimeout(timeout);
+        cleanup();
+
+        showError(
+          "Unable to connect to the verification server."
+        );
+      };
+
+      const requestURL =
+        API_URL +
+        "?action=verify" +
+        "&id=" + encodeURIComponent(memberId) +
+        "&callback=" + encodeURIComponent(callbackName);
+
+      script.src = requestURL;
+
+      document.body.appendChild(script);
+    }
+
+    // START VERIFICATION
     verifyMember();
+
   </script>
 
 </body>
